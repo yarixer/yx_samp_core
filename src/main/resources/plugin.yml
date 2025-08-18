@@ -1,0 +1,5 @@
+name: yx_samp_core
+version: '1.0-SNAPSHOT'
+main: org.yanix.yx_samp_core.Yx_samp_core
+api-version: '1.21'
+depend: [LuckPerms]
