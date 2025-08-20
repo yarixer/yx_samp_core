@@ -24,6 +24,7 @@ public class LpCoreRolesService implements CoreRolesApi {
     private static final Pattern ORG_PATTERN = GroupParsing.compileEmployment("org"); // org.<org>.<dept>.rank.<01-10>
     private static final Pattern JOB_PATTERN = GroupParsing.compileEmployment("job"); // job.<job>.<dept>.rank.<01-10>
     private static final Pattern STAFF_PATTERN = Pattern.compile("^staff\\.[a-z0-9_]+$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern GANG_PATTERN = Pattern.compile("^org\\.gang\\.([a-z0-9_]+)\\.rank\\.(?:0?([1-9])|10)$", Pattern.CASE_INSENSITIVE);
 
     public LpCoreRolesService(LuckPerms lp) {
         this.lp = lp;
@@ -220,6 +221,24 @@ public class LpCoreRolesService implements CoreRolesApi {
                         .filter(NodeType.INHERITANCE::matches)
                         .map(NodeType.INHERITANCE::cast)
                         .anyMatch(n -> STAFF_PATTERN.matcher(n.getGroupName()).matches())
+        );
+    }
+
+    @Override
+    public CompletableFuture<Optional<GangInfo>> getGang(UUID uuid) {
+        return loadUser(uuid).thenApply(user ->
+                user.getNodes().stream()
+                        .filter(NodeType.INHERITANCE::matches)
+                        .map(NodeType.INHERITANCE::cast)
+                        .map(n -> {
+                            var m = GANG_PATTERN.matcher(n.getGroupName());
+                            if (!m.matches()) return null;
+                            String dept = m.group(1); // например "ballas"
+                            int rank = (m.group(2) != null) ? Integer.parseInt(m.group(2)) : 10;
+                            return new GangInfo(dept, rank, n.getGroupName());
+                        })
+                        .filter(java.util.Objects::nonNull)
+                        .findFirst()
         );
     }
 }
