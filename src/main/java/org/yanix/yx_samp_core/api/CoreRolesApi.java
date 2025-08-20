@@ -27,4 +27,5 @@ public interface CoreRolesApi {
     CompletableFuture<Boolean> getIsStaff(UUID uuid);
 
     CompletableFuture<Optional<GangInfo>> getGang(UUID uuid);
+    CompletableFuture<Boolean> joinGang(UUID uuid, String dept, int rank); // dept: "ballas", rank: 1..10
 }

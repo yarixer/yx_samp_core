@@ -25,6 +25,7 @@ public class LpCoreRolesService implements CoreRolesApi {
     private static final Pattern JOB_PATTERN = GroupParsing.compileEmployment("job"); // job.<job>.<dept>.rank.<01-10>
     private static final Pattern STAFF_PATTERN = Pattern.compile("^staff\\.[a-z0-9_]+$", Pattern.CASE_INSENSITIVE);
     private static final Pattern GANG_PATTERN = Pattern.compile("^org\\.gang\\.([a-z0-9_]+)\\.rank\\.(?:0?([1-9])|10)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ORG_ANCHOR_PATTERN = Pattern.compile("^org\\.[a-z0-9_]+\\.[a-z0-9_]+$", Pattern.CASE_INSENSITIVE);
 
     public LpCoreRolesService(LuckPerms lp) {
         this.lp = lp;
@@ -240,5 +241,29 @@ public class LpCoreRolesService implements CoreRolesApi {
                         .filter(java.util.Objects::nonNull)
                         .findFirst()
         );
+    }
+    @Override
+    public CompletableFuture<Boolean> joinGang(UUID uuid, String dept, int rank) {
+        String d = dept.toLowerCase(Locale.ROOT);
+        if (rank < 1 || rank > 10) return CompletableFuture.completedFuture(false);
+
+        String anchor = "org.gang." + d;
+        String rankGroup = anchor + ".rank." + String.format("%02d", rank);
+
+        return loadUser(uuid).thenCompose(user -> {
+            // снять ВСЕ org.* (и .rank.*, и якоря)
+            findAllMatchingGroups(user, ORG_PATTERN).forEach(user.data()::remove);        // org.*.rank.*
+            user.getNodes().stream()
+                    .filter(NodeType.INHERITANCE::matches)
+                    .map(NodeType.INHERITANCE::cast)
+                    .filter(n -> ORG_ANCHOR_PATTERN.matcher(n.getGroupName()).matches())
+                    .forEach(user.data()::remove);                                       // org.* (якоря)
+
+            // выдать новый якорь и ранг
+            user.data().add(InheritanceNode.builder(anchor).build());
+            user.data().add(InheritanceNode.builder(rankGroup).build());
+
+            return saveUser(user);
+        });
     }
 }
