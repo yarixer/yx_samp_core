@@ -5,7 +5,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.Optional;
 
 public interface CoreRolesApi {
-    record GangInfo(String dept, int rank, String groupName) {}
+    record DepartmentInfo(String dept, int rank, String groupName) {}
 
     // --- JOB ---
     CompletableFuture<Boolean> getHasJob(UUID uuid);    // return true/false
@@ -26,6 +26,6 @@ public interface CoreRolesApi {
     // --- STAFF ---
     CompletableFuture<Boolean> getIsStaff(UUID uuid);
 
-    CompletableFuture<Optional<GangInfo>> getGang(UUID uuid);
-    CompletableFuture<Boolean> joinGang(UUID uuid, String dept, int rank); // dept: "ballas", rank: 1..10
+    CompletableFuture<Optional<DepartmentInfo>> getDepartment(UUID uuid, String orgname);
+    CompletableFuture<Boolean> joinDepartment(UUID uuid, String orgname, String dept, int rank);
 }

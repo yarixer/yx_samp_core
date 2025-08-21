@@ -24,7 +24,7 @@ public class LpCoreRolesService implements CoreRolesApi {
     private static final Pattern ORG_PATTERN = GroupParsing.compileEmployment("org"); // org.<org>.<dept>.rank.<01-10>
     private static final Pattern JOB_PATTERN = GroupParsing.compileEmployment("job"); // job.<job>.<dept>.rank.<01-10>
     private static final Pattern STAFF_PATTERN = Pattern.compile("^staff\\.[a-z0-9_]+$", Pattern.CASE_INSENSITIVE);
-    private static final Pattern GANG_PATTERN = Pattern.compile("^org\\.gang\\.([a-z0-9_]+)\\.rank\\.(?:0?([1-9])|10)$", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ORG_RANK_GENERIC = GroupParsing.compileEmployment("org");
     private static final Pattern ORG_ANCHOR_PATTERN = Pattern.compile("^org\\.[a-z0-9_]+\\.[a-z0-9_]+$", Pattern.CASE_INSENSITIVE);
 
     public LpCoreRolesService(LuckPerms lp) {
@@ -226,40 +226,42 @@ public class LpCoreRolesService implements CoreRolesApi {
     }
 
     @Override
-    public CompletableFuture<Optional<GangInfo>> getGang(UUID uuid) {
+    public CompletableFuture<Optional<DepartmentInfo>> getDepartment(UUID uuid, String orgname) {
+        var ORG_SPECIFIC = GroupParsing.compileOrg(orgname);
         return loadUser(uuid).thenApply(user ->
                 user.getNodes().stream()
                         .filter(NodeType.INHERITANCE::matches)
                         .map(NodeType.INHERITANCE::cast)
                         .map(n -> {
-                            var m = GANG_PATTERN.matcher(n.getGroupName());
+                            var m = ORG_SPECIFIC.matcher(n.getGroupName());
                             if (!m.matches()) return null;
-                            String dept = m.group(1); // например "ballas"
+                            String dept = m.group(1);
                             int rank = (m.group(2) != null) ? Integer.parseInt(m.group(2)) : 10;
-                            return new GangInfo(dept, rank, n.getGroupName());
+                            return new DepartmentInfo(dept, rank, n.getGroupName());
                         })
-                        .filter(java.util.Objects::nonNull)
+                        .filter(Objects::nonNull)
                         .findFirst()
         );
     }
+
     @Override
-    public CompletableFuture<Boolean> joinGang(UUID uuid, String dept, int rank) {
-        String d = dept.toLowerCase(Locale.ROOT);
+    public CompletableFuture<Boolean> joinDepartment(UUID uuid, String orgname, String dept, int rank) {
         if (rank < 1 || rank > 10) return CompletableFuture.completedFuture(false);
 
-        String anchor = "org.gang." + d;
-        String rankGroup = anchor + ".rank." + String.format("%02d", rank);
+        String anchor = GroupParsing.buildOrgAnchor(orgname, dept);
+        String rankGroup = GroupParsing.buildOrgRank(orgname, dept, rank);
 
         return loadUser(uuid).thenCompose(user -> {
-            // снять ВСЕ org.* (и .rank.*, и якоря)
-            findAllMatchingGroups(user, ORG_PATTERN).forEach(user.data()::remove);        // org.*.rank.*
+            // Снять все текущие org.* (и ранги, и якоря)
+            findAllMatchingGroups(user, ORG_RANK_GENERIC).forEach(user.data()::remove);
             user.getNodes().stream()
                     .filter(NodeType.INHERITANCE::matches)
                     .map(NodeType.INHERITANCE::cast)
                     .filter(n -> ORG_ANCHOR_PATTERN.matcher(n.getGroupName()).matches())
-                    .forEach(user.data()::remove);                                       // org.* (якоря)
+                    .toList()
+                    .forEach(user.data()::remove);
 
-            // выдать новый якорь и ранг
+            // Выдать новый якорь и ранг
             user.data().add(InheritanceNode.builder(anchor).build());
             user.data().add(InheritanceNode.builder(rankGroup).build());
 

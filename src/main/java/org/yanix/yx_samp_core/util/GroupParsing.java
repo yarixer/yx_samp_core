@@ -49,5 +49,30 @@ public final class GroupParsing {
             default -> t;
         };
     }
+
+    /** Regex: org.<orgname>.<dept>.rank.<01-10>  (группа 1 = dept, группа 2 = 1..9; 10 берём отдельно) */
+    public static Pattern compileOrg(String orgname) {
+        String o = orgname.toLowerCase(Locale.ROOT);
+        String regex = "^org\\." + Pattern.quote(o) + "\\.([a-z0-9_]+)\\.rank\\.(?:0?([1-9])|10)$";
+        return Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
+    }
+
+    public static Pattern compileOrg(String orgname, String dept) {
+        String o = orgname.toLowerCase(Locale.ROOT);
+        String d = dept.toLowerCase(Locale.ROOT);
+        String regex = "^org\\." + Pattern.quote(o) + "\\." + Pattern.quote(d) + "\\.rank\\.(?:0?([1-9])|10)$";
+        return Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
+    }
+
+    public static String buildOrgAnchor(String orgname, String dept) {
+        return "org.%s.%s".formatted(
+                orgname.toLowerCase(Locale.ROOT),
+                dept.toLowerCase(Locale.ROOT)
+        );
+    }
+
+    public static String buildOrgRank(String orgname, String dept, int rank) {
+        return buildOrgAnchor(orgname, dept) + ".rank." + String.format("%02d", rank);
+    }
 }
 
